@@ -3,26 +3,55 @@ import datetime
 from bs4 import BeautifulSoup
 import re
 
+
 def get_patient_details():
     URL = "https://www.pref.kagawa.lg.jp/yakumukansen/kansensyoujouhou/kansen/se9si9200517102553.html"
     with urllib.request.urlopen(URL) as response:
         html = response.read().decode("utf-8")
         sp = BeautifulSoup(html, "html.parser")
         last_update = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
-        print(last_update)
-        re_date_of_confirmation = re.compile(r"^\d*月\d*日（[日月火水木金土]曜日）")
-        re_case = re.compile(r"^\d*")
-        re_gender = re.compile(r"^[男女]")
+        re_date_of_confirmation = re.compile(r"^(\d*)月(\d*)日（[日月火水木金土]曜日）")
+        re_gender = re.compile(r"^([男女])")
         re_generation = re.compile(r"^\d*[歳代]")
-        re_address = re.compile(r"^.*[市町]")
+        re_address = re.compile(r"^(.*[市町村都道府県].*)")
+        pt_ls_d = datetime.datetime(2020, 3, 17)
 
-        for tag in sp.select(".datatable tbody tr"):
-            tr_summary = BeautifulSoup(tag,"html.parser")
-            for tds in tr_summary.select("td"):
+        for i, tag in enumerate(sp.select(".datatable tbody tr")):
+            if i == 0:
                 pass
+            else:
+                patient_data = {
+                    "リリース日": "",
+                    "居住地": "",
+                    "年代": "",
+                    "性別": "",
+                    "date": "",
+                }
+                for i, td in enumerate(tag.select("td")):
+                    txt = td.get_text(strip=True)
+                    if i == 1 and re_date_of_confirmation.match(txt) == None:
+                        patient_data["年代"] = txt
+                        patient_data["リリース日"]: str = str(pt_ls_d)
+                        patient_data["date"]: str = str(pt_ls_d.date())
+                    elif re_date_of_confirmation.match(txt):
+                        rp = re_date_of_confirmation.match(txt)
+                        dt = datetime.datetime(
+                            2020, int(rp.group(1)), int(rp.group(2)))
+                        pt_ls_d = dt
+                        patient_data["リリース日"]: str = str(dt)
+                        patient_data["date"]: str = str(dt.date())
+                    elif re_address.match(txt):
+                        patient_data["居住地"] = txt
+                    elif re_gender.match(txt):
+                        patient_data["性別"] = txt + "性"
+                    elif re_generation.match(txt):
+                        patient_data["年代"] = txt
+                print(patient_data)
+
 
 def main():
     get_patient_details()
+
 
 if __name__ == "__main__":
     main()

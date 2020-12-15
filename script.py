@@ -4,20 +4,21 @@ from bs4 import BeautifulSoup
 import re
 import json
 
+LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
+
 
 def get_patient_details():
     URL = "https://www.pref.kagawa.lg.jp/yakumukansen/kansensyoujouhou/kansen/se9si9200517102553.html"
     with urllib.request.urlopen(URL) as response:
         html = response.read().decode("utf-8")
         sp = BeautifulSoup(html, "html.parser")
-        last_update = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
         re_date_of_confirmation = re.compile(r"^(\d*)月(\d*)日（[日月火水木金土]曜日）")
         re_gender = re.compile(r"^([男女])")
         re_generation = re.compile(r"^\d*[歳代]")
         re_address = re.compile(r"^(.*[市町村都道府県].*)")
         pt_ls_d = datetime.datetime(2020, 3, 17)
         template = {
-            "date": last_update,
+            "date": LAST_UPDATE,
             "data": []
         }
         for i, tag in enumerate(sp.select(".datatable tbody tr")):
@@ -51,11 +52,51 @@ def get_patient_details():
                     elif re_generation.match(txt):
                         patient_data["年代"] = txt
                 template["data"].append(patient_data)
-        with open("patients.json","w",encoding="utf-8") as f:
+        with open("patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
+
+
+def generateSummary():
+    URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
+    main_summary_template = {
+        "date": LAST_UPDATE,
+        "attr": "検査実施件数",
+        "value": 0,
+        "children": [
+            {
+                "attr": "陽性患者数",
+                "value": 0,
+                "children": [
+                    {
+                        "attr": "入院中",
+                        "value": 0
+                    },
+                    {
+                        "attr": "退院",
+                        "value": 0
+                    },
+                    {
+                        "attr": "死亡",
+                        "value": 0
+                    },
+                    {
+                        "attr": "調査中",
+                        "value": 0
+                    }
+                ]
+            }
+        ]
+    }
+    with urllib.request.urlopen(URL) as response:
+        html = response.read().decode("utf-8")
+        sp = BeautifulSoup(html, "html.parser")
+        for td in sp.select("[summary=\"香川県の発生状況一覧\"] tbody tr")[-1].select("td"):
+            print(td.get_text(strip=True))
+
 
 def main():
     get_patient_details()
+    generateSummary()
 
 
 if __name__ == "__main__":

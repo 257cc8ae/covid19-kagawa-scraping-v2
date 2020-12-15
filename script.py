@@ -2,6 +2,7 @@ import urllib.request
 import datetime
 from bs4 import BeautifulSoup
 import re
+import json
 
 
 def get_patient_details():
@@ -15,7 +16,10 @@ def get_patient_details():
         re_generation = re.compile(r"^\d*[歳代]")
         re_address = re.compile(r"^(.*[市町村都道府県].*)")
         pt_ls_d = datetime.datetime(2020, 3, 17)
-
+        template = {
+            "date": last_update,
+            "data": []
+        }
         for i, tag in enumerate(sp.select(".datatable tbody tr")):
             if i == 0:
                 pass
@@ -46,8 +50,9 @@ def get_patient_details():
                         patient_data["性別"] = txt + "性"
                     elif re_generation.match(txt):
                         patient_data["年代"] = txt
-                print(patient_data)
-
+                template["data"].append(patient_data)
+        with open("patients.json","w",encoding="utf-8") as f:
+            json.dump(template, f, indent=4, ensure_ascii=False)
 
 def main():
     get_patient_details()

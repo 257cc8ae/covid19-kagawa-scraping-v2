@@ -3,6 +3,7 @@ import datetime
 from bs4 import BeautifulSoup
 import re
 import json
+import urllib.parse
 
 LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
 
@@ -55,9 +56,54 @@ def get_patient_details():
         with open("patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
+def readCSV(f):
+    result = []
+    for i, line in enumerate(f.split("\n")):
+        if i != 0:
+            result.append(line.strip().split(","))
+    return result
+
+def generateInspections():
+    Inspections_template = {
+        "date": LAST_UPDATE,
+        "data": {
+            "県内": [],
+            "labels": [],
+        },
+    }
+
+    csv_file_names = [
+        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4946/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B02.csv",
+        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv"
+    ]
+    for url in csv_file_names:
+        with urllib.request.urlopen(url) as response:
+            f = response.read().decode("shift-jis")
+            readCSV(f)
 
 def generateSummary():
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
+    results = {}
+    with urllib.request.urlopen(URL) as response:
+        html = response.read().decode("utf-8")
+        sp = BeautifulSoup(html, "html.parser")
+        if len(sp.select("[summary=\"香川県の発生状況一覧\"] tbody tr")[-1].select("td")) == 6:
+            for i, td in enumerate(sp.select("[summary=\"香川県の発生状況一覧\"] tbody tr")[-1].select("td")):
+                txt = td.get_text(strip=True).replace("人", "")
+                if i == 0:
+                    results["陽性患者数"] = int(txt)
+                elif i == 1:
+                    results["うち直近1週間"] = int(txt)
+                elif i == 2:
+                    results["現在感染者数"] = int(txt)
+                elif i == 3:
+                    results["死亡"] = int(txt)
+                elif i == 4:
+                    results["退院・退所"] = int(txt)
+                elif re.match(r"^＞＞（\d）(.*)", txt):
+                    results["対策期のレベル"] = re.match(r"^＞＞（\d）(.*)", txt).group(1)
+        else:
+            print("県のサイトの更新がありました。")
     main_summary_template = {
         "date": LAST_UPDATE,
         "attr": "検査実施件数",
@@ -87,16 +133,12 @@ def generateSummary():
             }
         ]
     }
-    with urllib.request.urlopen(URL) as response:
-        html = response.read().decode("utf-8")
-        sp = BeautifulSoup(html, "html.parser")
-        for td in sp.select("[summary=\"香川県の発生状況一覧\"] tbody tr")[-1].select("td"):
-            print(td.get_text(strip=True))
 
 
 def main():
     get_patient_details()
     generateSummary()
+    generateInspections()
 
 
 if __name__ == "__main__":

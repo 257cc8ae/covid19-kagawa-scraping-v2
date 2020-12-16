@@ -56,12 +56,14 @@ def get_patient_details():
         with open("patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
+
 def readCSV(f):
     result = []
     for i, line in enumerate(f.split("\n")):
         if i != 0:
             result.append(line.strip().split(","))
     return result
+
 
 def generateInspections():
     Inspections_template = {
@@ -72,14 +74,18 @@ def generateInspections():
         },
     }
 
-    csv_file_names = [
+    csv_files = [
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4946/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B02.csv",
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv"
     ]
-    for url in csv_file_names:
+    for i, url in enumerate(csv_files):
         with urllib.request.urlopen(url) as response:
-            f = response.read().decode("shift-jis")
-            readCSV(f)
+            if i == 0:
+                f = response.read().decode("shift-jis")
+                for csv_arr in readCSV(f):
+                    a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
+                    print(a_day_inspections_number)
+
 
 def generateSummary():
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"

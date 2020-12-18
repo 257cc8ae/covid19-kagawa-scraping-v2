@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 import urllib.parse
+# import csv
 # 感染者の詳細をスクレイピングする関数
 # future: 年が変わったときにサイトどのような仕様になるか確認必要
 def get_patient_details(last_upadte):
@@ -99,6 +100,24 @@ def generateInspectionsJson(inspections_dic,last_update):
     with open("data/inspections_summary.json", "w", encoding="utf-8") as f:
         json.dump(inspections_template, f, indent=4, ensure_ascii=False)
 
+def generateNews(updated_at):
+    result = {
+        "newsItems": []
+    }
+    URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
+    re_url = re.compile(r"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+")
+    with urllib.request.urlopen(URL) as response:
+        html = response.read().decode()
+        sp = BeautifulSoup(html,"html.parser")
+        for a_tag in sp.select(".box_info .box_info_cnt ul li a"):
+            if re_url.fullmatch(a_tag.get("href")):
+                print(a_tag.get("href"))                   
+                print(a_tag.get_text())
+            else:
+                print(f"https://www.pref.kagawa.lg.jp/{a_tag.get('href')}")
+                print(a_tag.get_text())
+
+
 # main_summary.jsonを生成する
 # future: サイトの方を更新して調査中をなくして現在感染者数に変更する
 def generateSummary(inspections_count,last_update):
@@ -156,23 +175,15 @@ def generateSummary(inspections_count,last_update):
     with open("data/main_summary.json", "w", encoding="utf-8") as f:
             json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
 
-def generateQuerents(updated_at):
-    URL = "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4391/%E5%8F%97%E8%A8%BA%E7%9B%B8%E8%AB%87%E4%BB%B6%E6%95%B0.csv"
-    with urllib.request.urlopen(URL) as response:
-        f = readCSV(response.read().decode("shift-jis"))
-        oldest_date = datetime.datetime(int(f[0][0].split("/")[0]),int(f[0][0].split("/")[1]),int(f[0][0].split("/")[2]))
-        now_date = datetime.datetime.now()
-        n_days_ago = (now_date - oldest_date).days
-        print(n_days_ago)
+
+            
 def main():
-    # 最終更新日はオープンデータのサイトから取得した場合、県サイトのサイトでそれよりあとに更新があった場合に整合性を保てないので一時的に現在の日時を取得
-    # タイムゾーンの変更が必要かも？？
     LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
     summary_inspections = generateInspectionsArray()
     get_patient_details(LAST_UPDATE)
     generateSummary(summary_inspections["inspections_count"],LAST_UPDATE)
     generateInspectionsJson(summary_inspections,LAST_UPDATE)
-    generateQuerents(LAST_UPDATE)
+    generateNews(LAST_UPDATE)
 
 if __name__ == "__main__":
     main()

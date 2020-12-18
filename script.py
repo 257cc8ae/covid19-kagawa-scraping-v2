@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import re
 import json
 import urllib.parse
-
 LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
 
 
@@ -65,7 +64,7 @@ def readCSV(f):
     return result
 
 
-def generateInspections():
+def generateInspectionsArray():
     Inspections_template = {
         "date": LAST_UPDATE,
         "data": {
@@ -75,17 +74,25 @@ def generateInspections():
     }
 
     csv_files = [
-        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4946/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B02.csv",
-        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv"
+        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv",
+        "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4946/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B412%E6%9C%881%E6%97%A5%E3%81%8B%E3%82%89%EF%BC%89.csv",
     ]
     for i, url in enumerate(csv_files):
         with urllib.request.urlopen(url) as response:
             if i == 0:
                 f = response.read().decode("shift-jis")
                 for csv_arr in readCSV(f):
-                    a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
-                    print(a_day_inspections_number)
-
+                    if len(csv_arr) == 9:
+                        a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
+                        print(csv_arr[0])
+                        print(a_day_inspections_number)
+            elif i == 1:
+                f = response.read().decode("shift-jis")
+                for csv_arr in readCSV(f):
+                    if csv_arr != [""]:
+                        a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[3])
+                        print(csv_arr[0])
+                        print(a_day_inspections_number)
 
 def generateSummary():
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
@@ -144,7 +151,7 @@ def generateSummary():
 def main():
     get_patient_details()
     generateSummary()
-    generateInspections()
+    generateInspectionsArray()
 
 
 if __name__ == "__main__":

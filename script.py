@@ -52,7 +52,7 @@ def get_patient_details():
                     elif re_generation.match(txt):
                         patient_data["年代"] = txt
                 template["data"].insert(0,patient_data)
-        with open("patients.json", "w", encoding="utf-8") as f:
+        with open("data/patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
 
@@ -99,7 +99,7 @@ def generateInspectionsJson(inspections_dic):
         },
         "labels": inspections_dic["labels"]
     }
-    with open("inspections_summary.json", "w", encoding="utf-8") as f:
+    with open("data/inspections_summary.json", "w", encoding="utf-8") as f:
         json.dump(inspections_template, f, indent=4, ensure_ascii=False)
 
 def generateSummary(inspections_count):
@@ -154,7 +154,7 @@ def generateSummary(inspections_count):
             }
         ]
     }
-    with open("main_summary.json", "w", encoding="utf-8") as f:
+    with open("data/main_summary.json", "w", encoding="utf-8") as f:
             json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
 
 

@@ -65,18 +65,12 @@ def readCSV(f):
 
 
 def generateInspectionsArray():
-    Inspections_template = {
-        "date": LAST_UPDATE,
-        "data": {
-            "県内": [],
-            "labels": [],
-        },
-    }
-
     csv_files = [
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv",
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4946/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B412%E6%9C%881%E6%97%A5%E3%81%8B%E3%82%89%EF%BC%89.csv",
     ]
+    inspections_number = []
+    labels = []
     for i, url in enumerate(csv_files):
         with urllib.request.urlopen(url) as response:
             if i == 0:
@@ -84,15 +78,18 @@ def generateInspectionsArray():
                 for csv_arr in readCSV(f):
                     if len(csv_arr) == 9:
                         a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
-                        print(csv_arr[0])
-                        print(a_day_inspections_number)
+                        labels.append(csv_arr[0])
+                        inspections_number.append(a_day_inspections_number)
             elif i == 1:
                 f = response.read().decode("shift-jis")
                 for csv_arr in readCSV(f):
                     if csv_arr != [""]:
                         a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[3])
-                        print(csv_arr[0])
-                        print(a_day_inspections_number)
+                        labels.append(csv_arr[0])
+                        inspections_number.append(a_day_inspections_number)
+    return {"inspections_count": inspections_number, "lables": labels}
+
+summary_inspections_dic = generateInspectionsArray()
 
 def generateSummary():
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
@@ -120,23 +117,23 @@ def generateSummary():
     main_summary_template = {
         "date": LAST_UPDATE,
         "attr": "検査実施件数",
-        "value": 0,
+        "value": sum(summary_inspections_dic["inspections_count"]),
         "children": [
             {
                 "attr": "陽性患者数",
-                "value": 0,
+                "value": results["陽性患者数"],
                 "children": [
                     {
                         "attr": "入院中",
-                        "value": 0
+                        "value": results["現在感染者数"]
                     },
                     {
                         "attr": "退院",
-                        "value": 0
+                        "value": results["退院・退所"]
                     },
                     {
                         "attr": "死亡",
-                        "value": 0
+                        "value": results["死亡"]
                     },
                     {
                         "attr": "調査中",
@@ -146,6 +143,8 @@ def generateSummary():
             }
         ]
     }
+    with open("main_summary.json", "w", encoding="utf-8") as f:
+            json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
 
 
 def main():

@@ -4,8 +4,8 @@ from bs4 import BeautifulSoup
 import re
 import json
 import urllib.parse
-LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
 
+LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
 
 def get_patient_details():
     URL = "https://www.pref.kagawa.lg.jp/yakumukansen/kansensyoujouhou/kansen/se9si9200517102553.html"
@@ -51,7 +51,7 @@ def get_patient_details():
                         patient_data["性別"] = txt + "性"
                     elif re_generation.match(txt):
                         patient_data["年代"] = txt
-                template["data"].append(patient_data)
+                template["data"].insert(0,patient_data)
         with open("patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
@@ -87,11 +87,22 @@ def generateInspectionsArray():
                         a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[3])
                         labels.append(csv_arr[0])
                         inspections_number.append(a_day_inspections_number)
-    return {"inspections_count": inspections_number, "lables": labels}
+    return {"inspections_count": inspections_number, "labels": labels}
 
 summary_inspections_dic = generateInspectionsArray()
 
-def generateSummary():
+def generateInspectionsJson(inspections_dic): 
+    inspections_template = {
+        "date": LAST_UPDATE,
+        "data": {
+            "県内": inspections_dic["inspections_count"],
+        },
+        "labels": inspections_dic["labels"]
+    }
+    with open("inspections_summary.json", "w", encoding="utf-8") as f:
+        json.dump(inspections_template, f, indent=4, ensure_ascii=False)
+
+def generateSummary(inspections_count):
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
     results = {}
     with urllib.request.urlopen(URL) as response:
@@ -117,7 +128,7 @@ def generateSummary():
     main_summary_template = {
         "date": LAST_UPDATE,
         "attr": "検査実施件数",
-        "value": sum(summary_inspections_dic["inspections_count"]),
+        "value": sum(inspections_count),
         "children": [
             {
                 "attr": "陽性患者数",
@@ -148,10 +159,10 @@ def generateSummary():
 
 
 def main():
+    summary_inspections = generateInspectionsArray()
     get_patient_details()
-    generateSummary()
-    generateInspectionsArray()
-
+    generateSummary(summary_inspections["inspections_count"])
+    generateInspectionsJson(summary_inspections)
 
 if __name__ == "__main__":
     main()

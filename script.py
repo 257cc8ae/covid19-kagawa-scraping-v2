@@ -4,10 +4,9 @@ from bs4 import BeautifulSoup
 import re
 import json
 import urllib.parse
-
-LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
-
-def get_patient_details():
+# 感染者の詳細をスクレイピングする関数
+# future: 年が変わったときにサイトどのような仕様になるか確認必要
+def get_patient_details(last_upadte):
     URL = "https://www.pref.kagawa.lg.jp/yakumukansen/kansensyoujouhou/kansen/se9si9200517102553.html"
     with urllib.request.urlopen(URL) as response:
         html = response.read().decode("utf-8")
@@ -18,7 +17,7 @@ def get_patient_details():
         re_address = re.compile(r"^(.*[市町村都道府県].*)")
         pt_ls_d = datetime.datetime(2020, 3, 17)
         template = {
-            "date": LAST_UPDATE,
+            "date": last_upadte,
             "data": []
         }
         for i, tag in enumerate(sp.select(".datatable tbody tr")):
@@ -55,7 +54,7 @@ def get_patient_details():
         with open("data/patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
-
+# CSVを読み込む関数（ヘッダーを無視する仕様に）
 def readCSV(f):
     result = []
     for i, line in enumerate(f.split("\n")):
@@ -63,7 +62,7 @@ def readCSV(f):
             result.append(line.strip().split(","))
     return result
 
-
+# オープンデータから検査数を読み込んで辞書型を返す関数
 def generateInspectionsArray():
     csv_files = [
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv",
@@ -88,12 +87,10 @@ def generateInspectionsArray():
                         labels.append(csv_arr[0])
                         inspections_number.append(a_day_inspections_number)
     return {"inspections_count": inspections_number, "labels": labels}
-
-summary_inspections_dic = generateInspectionsArray()
-
-def generateInspectionsJson(inspections_dic): 
+# 検査実施数を辞書型を参照しいい感じにJSONに変換する関数
+def generateInspectionsJson(inspections_dic,last_update): 
     inspections_template = {
-        "date": LAST_UPDATE,
+        "date": last_update,
         "data": {
             "県内": inspections_dic["inspections_count"],
         },
@@ -102,7 +99,9 @@ def generateInspectionsJson(inspections_dic):
     with open("data/inspections_summary.json", "w", encoding="utf-8") as f:
         json.dump(inspections_template, f, indent=4, ensure_ascii=False)
 
-def generateSummary(inspections_count):
+# main_summary.jsonを生成する
+# future: サイトの方を更新して調査中をなくして現在感染者数に変更する
+def generateSummary(inspections_count,last_update):
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
     results = {}
     with urllib.request.urlopen(URL) as response:
@@ -126,7 +125,7 @@ def generateSummary(inspections_count):
         else:
             print("県のサイトの更新がありました。")
     main_summary_template = {
-        "date": LAST_UPDATE,
+        "date": last_update,
         "attr": "検査実施件数",
         "value": sum(inspections_count),
         "children": [
@@ -157,12 +156,23 @@ def generateSummary(inspections_count):
     with open("data/main_summary.json", "w", encoding="utf-8") as f:
             json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
 
-
+def generateQuerents(updated_at):
+    URL = "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4391/%E5%8F%97%E8%A8%BA%E7%9B%B8%E8%AB%87%E4%BB%B6%E6%95%B0.csv"
+    with urllib.request.urlopen(URL) as response:
+        f = readCSV(response.read().decode("shift-jis"))
+        oldest_date = datetime.datetime(int(f[0][0].split("/")[0]),int(f[0][0].split("/")[1]),int(f[0][0].split("/")[2]))
+        now_date = datetime.datetime.now()
+        n_days_ago = (now_date - oldest_date).days
+        print(n_days_ago)
 def main():
+    # 最終更新日はオープンデータのサイトから取得した場合、県サイトのサイトでそれよりあとに更新があった場合に整合性を保てないので一時的に現在の日時を取得
+    # タイムゾーンの変更が必要かも？？
+    LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
     summary_inspections = generateInspectionsArray()
-    get_patient_details()
-    generateSummary(summary_inspections["inspections_count"])
-    generateInspectionsJson(summary_inspections)
+    get_patient_details(LAST_UPDATE)
+    generateSummary(summary_inspections["inspections_count"],LAST_UPDATE)
+    generateInspectionsJson(summary_inspections,LAST_UPDATE)
+    generateQuerents(LAST_UPDATE)
 
 if __name__ == "__main__":
     main()

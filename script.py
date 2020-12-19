@@ -4,10 +4,11 @@ from bs4 import BeautifulSoup
 import re
 import json
 import urllib.parse
-# import csv
 # 感染者の詳細をスクレイピングする関数
 # future: 年が変わったときにサイトどのような仕様になるか確認必要
-def get_patient_details(last_upadte):
+
+
+def get_patient_details(last_update):
     URL = "https://www.pref.kagawa.lg.jp/yakumukansen/kansensyoujouhou/kansen/se9si9200517102553.html"
     with urllib.request.urlopen(URL) as response:
         html = response.read().decode("utf-8")
@@ -18,7 +19,7 @@ def get_patient_details(last_upadte):
         re_address = re.compile(r"^(.*[市町村都道府県].*)")
         pt_ls_d = datetime.datetime(2020, 3, 17)
         template = {
-            "date": last_upadte,
+            "date": last_update,
             "data": []
         }
         for i, tag in enumerate(sp.select(".datatable tbody tr")):
@@ -51,11 +52,13 @@ def get_patient_details(last_upadte):
                         patient_data["性別"] = txt + "性"
                     elif re_generation.match(txt):
                         patient_data["年代"] = txt
-                template["data"].insert(0,patient_data)
+                template["data"].insert(0, patient_data)
         with open("data/patients.json", "w", encoding="utf-8") as f:
             json.dump(template, f, indent=4, ensure_ascii=False)
 
 # CSVを読み込む関数（ヘッダーを無視する仕様に）
+
+
 def readCSV(f):
     result = []
     for i, line in enumerate(f.split("\n")):
@@ -64,6 +67,8 @@ def readCSV(f):
     return result
 
 # オープンデータから検査数を読み込んで辞書型を返す関数
+
+
 def generateInspectionsArray():
     csv_files = [
         "https://opendata.pref.kagawa.lg.jp/dataset/359/resource/4390/%E6%A4%9C%E6%9F%BB%E4%BB%B6%E6%95%B0%EF%BC%88%E4%BB%A4%E5%92%8C2%E5%B9%B411%E6%9C%8830%E6%97%A5%E3%81%BE%E3%81%A7%EF%BC%89.csv",
@@ -71,25 +76,39 @@ def generateInspectionsArray():
     ]
     inspections_number = []
     labels = []
+    patients_summary = []
     for i, url in enumerate(csv_files):
         with urllib.request.urlopen(url) as response:
             if i == 0:
                 f = response.read().decode("shift-jis")
                 for csv_arr in readCSV(f):
                     if len(csv_arr) == 9:
-                        a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
+                        date = datetime.datetime(int(csv_arr[0].split(
+                            "/")[0]), int(csv_arr[0].split("/")[1]), int(csv_arr[0].split("/")[2]))
+                        a_day_inspections_number = int(
+                            csv_arr[1]) + int(csv_arr[2]) + int(csv_arr[5]) + int(csv_arr[6])
                         labels.append(csv_arr[0])
                         inspections_number.append(a_day_inspections_number)
+                        rs = {"日付": str(date), "小計": int(
+                            csv_arr[3]) + int(csv_arr[7])}
+                        patients_summary.append(rs)
             elif i == 1:
                 f = response.read().decode("shift-jis")
                 for csv_arr in readCSV(f):
                     if csv_arr != [""]:
-                        a_day_inspections_number = int(csv_arr[1]) + int(csv_arr[3])
+                        date = datetime.datetime(int(csv_arr[0].split(
+                            "/")[0]), int(csv_arr[0].split("/")[1]), int(csv_arr[0].split("/")[2]))
+                        a_day_inspections_number = int(
+                            csv_arr[1]) + int(csv_arr[3])
                         labels.append(csv_arr[0])
                         inspections_number.append(a_day_inspections_number)
-    return {"inspections_count": inspections_number, "labels": labels}
+                        rs = {"日付": str(date), "小計": int(csv_arr[8])}
+                        patients_summary.append(rs)
+    return {"inspections_count": inspections_number, "labels": labels, "patients_summary": patients_summary}
 # 検査実施数を辞書型を参照しいい感じにJSONに変換する関数
-def generateInspectionsJson(inspections_dic,last_update): 
+
+
+def generateInspectionsJson(inspections_dic, last_update):
     inspections_template = {
         "date": last_update,
         "data": {
@@ -100,27 +119,20 @@ def generateInspectionsJson(inspections_dic,last_update):
     with open("data/inspections_summary.json", "w", encoding="utf-8") as f:
         json.dump(inspections_template, f, indent=4, ensure_ascii=False)
 
-def generateNews(updated_at):
-    result = {
-        "newsItems": []
-    }
-    URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
-    re_url = re.compile(r"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+")
-    with urllib.request.urlopen(URL) as response:
-        html = response.read().decode()
-        sp = BeautifulSoup(html,"html.parser")
-        for a_tag in sp.select(".box_info .box_info_cnt ul li a"):
-            if re_url.fullmatch(a_tag.get("href")):
-                print(a_tag.get("href"))                   
-                print(a_tag.get_text())
-            else:
-                print(f"https://www.pref.kagawa.lg.jp/{a_tag.get('href')}")
-                print(a_tag.get_text())
 
+def generatePatientsSummary(patients_summary_arr, last_update):
+    patients_summary_template = {
+        "date": last_update,
+        "data": patients_summary_arr
+    }
+    with open("data/patients_summary.json", "w", encoding="utf-8") as f:
+        json.dump(patients_summary_template, f, indent=4, ensure_ascii=False)
 
 # main_summary.jsonを生成する
 # future: サイトの方を更新して調査中をなくして現在感染者数に変更する
-def generateSummary(inspections_count,last_update):
+
+
+def generateSummary(inspections_count, last_update):
     URL = "https://www.pref.kagawa.lg.jp/kocho/koho/kohosonota/topics/wt5q49200131182439.html"
     results = {}
     with urllib.request.urlopen(URL) as response:
@@ -173,17 +185,18 @@ def generateSummary(inspections_count,last_update):
         ]
     }
     with open("data/main_summary.json", "w", encoding="utf-8") as f:
-            json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
+        json.dump(main_summary_template, f, indent=4, ensure_ascii=False)
 
 
-            
 def main():
-    LAST_UPDATE = datetime.datetime.now().strftime('%Y/%m/%d %H:%M')
+    LAST_UPDATE = (datetime.datetime.now(datetime.timezone.utc) +
+                   datetime.timedelta(hours=9)).strftime('%Y/%m/%d %H:%M')
     summary_inspections = generateInspectionsArray()
     get_patient_details(LAST_UPDATE)
-    generateSummary(summary_inspections["inspections_count"],LAST_UPDATE)
-    generateInspectionsJson(summary_inspections,LAST_UPDATE)
-    generateNews(LAST_UPDATE)
+    generateSummary(summary_inspections["inspections_count"], LAST_UPDATE)
+    generateInspectionsJson(summary_inspections, LAST_UPDATE)
+    generatePatientsSummary(summary_inspections["patients_summary"],LAST_UPDATE)
+
 
 if __name__ == "__main__":
     main()
